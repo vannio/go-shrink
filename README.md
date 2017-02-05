@@ -17,5 +17,6 @@ Table currently looks like:
 - Implement POST-redirect
 - Make it look less ugly
 - Maybe think of a better name than _Shrink_
+- Differentiate between dev and prod environments
 - Get it working on AWS
 - Hope no-one abuses it
