@@ -4,8 +4,13 @@ import (
   "log"
   "time"
   "fmt"
+  "net/http"
+  "net/url"
+  "hash/adler32"
   "database/sql"
+
   _ "github.com/lib/pq"
+  "github.com/PuerkitoBio/purell"
 )
 
 var db *sql.DB
@@ -22,18 +27,79 @@ func init() {
   }
 }
 
-func main() {
-  AddUrl("https://google.co.uk")
+func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
+  query := req.URL.Query().Get("url")
+  if (len(query) == 0) {
+    fmt.Fprint(res, "No URL detected")
+    return
+  }
+
+  _, parseErr := url.ParseRequestURI(query)
+  if parseErr != nil {
+    fmt.Fprint(res, parseErr)
+    return
+  }
+
+  normalisedUrl := purell.MustNormalizeURLString(
+    query,
+    purell.FlagsUsuallySafeGreedy |
+    purell.FlagRemoveDuplicateSlashes |
+    purell.FlagAddWWW |
+    purell.FlagSortQuery,
+  )
+
+  token := createToken(normalisedUrl)
+
+  result, queryErr := db.Exec("SELECT * FROM urls WHERE token = $1", token)
+
+  if queryErr != nil {
+    fmt.Fprint(res, queryErr)
+    return
+  }
+
+  rows, _ := result.RowsAffected();
+
+  if rows > 0 {
+    fmt.Fprint(res, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
+    return
+  }
+
+  insertErr := InsertUrlToDB(normalisedUrl, token)
+
+  if insertErr != nil {
+    fmt.Fprint(res, insertErr)
+    return
+  }
+
+  fmt.Fprint(res, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
 }
 
-func AddUrl(url string) {
+func createToken(url string) string {
+  b := []byte(url)
+  c := adler32.Checksum(b)
+  return fmt.Sprintf("%x", c)
+}
+
+func InsertUrlToDB(url string, token string) error {
   fmt.Println("# Inserting values")
 
   var lastInsertId int
-  err := db.QueryRow("INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning token;", "j4s56q", url, time.Now()).Scan(&lastInsertId)
+  err := db.QueryRow(
+    "INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
+    token,
+    url,
+    time.Now(),
+  ).Scan(&lastInsertId)
 
   if err != nil {
-    log.Fatal(err)
+    return err
   }
+
   fmt.Println("last inserted id =", lastInsertId)
+  return nil
+}
+
+func main() {
+  http.HandleFunc("/", FindOrCreateShorturl) // The root route
+  http.ListenAndServe(":9000", nil)
 }
