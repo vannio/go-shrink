@@ -25,7 +25,7 @@ func Create(w http.ResponseWriter, r *http.Request) {
   }
 
   query := r.FormValue("url")
-  t, _ := template.ParseFiles("tmpl/index.html")
+  t, _ := template.ParseFiles("template/index.html")
 
   // URL validation
   _, parseErr := url.ParseRequestURI(query)
@@ -71,7 +71,7 @@ func Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func Redirect(w http.ResponseWriter, r *http.Request) {
-  t, _ := template.ParseFiles("tmpl/index.html")
+  t, _ := template.ParseFiles("template/index.html")
   token := mux.Vars(r)["token"]
   originalUrl, urlErr := findRow(token)
 
@@ -103,7 +103,7 @@ func Redirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func Root(w http.ResponseWriter, r *http.Request) {
-  t, _ := template.ParseFiles("tmpl/index.html")
+  t, _ := template.ParseFiles("template/index.html")
   t.Execute(w, nil)
 }
 
