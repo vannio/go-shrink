@@ -1,7 +1,6 @@
 package handle
 
 import (
-  "log"
   "time"
   "fmt"
   "net/http"
@@ -11,11 +10,10 @@ import (
   "html/template"
 
   _ "github.com/lib/pq"
-  "github.com/PuerkitoBio/purell"
   "github.com/gorilla/mux"
+  "github.com/PuerkitoBio/purell"
+  "github.com/vannio/shrink/db"
 )
-
-var db *sql.DB
 
 // ------
 // PUBLIC
@@ -57,7 +55,7 @@ func Create(res http.ResponseWriter, req *http.Request) {
   }
 
   // Create new entry in db
-  _, insertErr := db.Exec(
+  _, insertErr := db.Connection.Exec(
     "INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
     token,
     normalisedUrl,
@@ -89,7 +87,7 @@ func Redirect(res http.ResponseWriter, req *http.Request) {
   }
 
   // Otherwise update access_count and last_accessed
-  _, queryErr := db.Exec(
+  _, queryErr := db.Connection.Exec(
     "UPDATE urls SET access_count = access_count + 1, last_accessed = $1 WHERE token = $2",
     time.Now(),
     token,
@@ -101,7 +99,7 @@ func Redirect(res http.ResponseWriter, req *http.Request) {
   }
 
   // Redirect to the original URL
-  http.Redirect(res, req, url, 302)
+  http.Redirect(res, req, originalUrl, 302)
 }
 
 func Root(res http.ResponseWriter, req *http.Request) {
@@ -115,7 +113,7 @@ func Root(res http.ResponseWriter, req *http.Request) {
 
 func findRow(token string) (string, error) {
   var url string
-  err := db.QueryRow("SELECT url FROM urls WHERE token = $1", token).Scan(&url)
+  err := db.Connection.QueryRow("SELECT url FROM urls WHERE token = $1", token).Scan(&url)
 
   if err == sql.ErrNoRows {
     return url, nil
@@ -138,17 +136,4 @@ func normaliseUrl(url string) string {
     purell.FlagAddWWW |
     purell.FlagSortQuery,
   )
-}
-
-func init() {
-  var err error
-  db, err = sql.Open("postgres", "postgres://localhost/shrink?sslmode=disable")
-
-  if err != nil {
-    log.Fatal(err)
-  }
-
-  if err = db.Ping(); err != nil {
-    log.Fatal(err)
-  }
 }
