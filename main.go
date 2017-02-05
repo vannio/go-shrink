@@ -11,6 +11,7 @@ import (
 
   _ "github.com/lib/pq"
   "github.com/PuerkitoBio/purell"
+  "github.com/gorilla/mux"
 )
 
 var db *sql.DB
@@ -50,16 +51,16 @@ func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
 
   token := createToken(normalisedUrl)
 
-  result, queryErr := db.Exec("SELECT * FROM urls WHERE token = $1", token)
+  url, urlErr := findRow(token)
 
-  if queryErr != nil {
-    fmt.Fprint(res, queryErr)
+  if urlErr != nil {
+    fmt.Fprint(res, urlErr)
     return
   }
 
-  rows, _ := result.RowsAffected();
+  fmt.Println(url)
 
-  if rows > 0 {
+  if len(url) > 0 {
     fmt.Fprint(res, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
     return
   }
@@ -99,7 +100,38 @@ func InsertUrlToDB(url string, token string) error {
   return nil
 }
 
+func findRow(token string) (string, error) {
+  var url string
+  err := db.QueryRow("SELECT url FROM urls WHERE token = $1", token).Scan(&url)
+
+  if err == sql.ErrNoRows {
+    return url, nil
+  }
+
+  return url, err
+}
+
+func RedirectToUrl(res http.ResponseWriter, req *http.Request) {
+  token := mux.Vars(req)["token"]
+
+  url, urlErr := findRow(token)
+
+  if urlErr != nil {
+    fmt.Fprint(res, urlErr)
+    return
+  }
+
+  if len(url) > 0 {
+    http.Redirect(res, req, url, 301)
+  }
+
+  http.NotFound(res, req)
+}
+
 func main() {
-  http.HandleFunc("/", FindOrCreateShorturl) // The root route
-  http.ListenAndServe(":9000", nil)
+  r := mux.NewRouter()
+  r.HandleFunc("/", FindOrCreateShorturl)
+  r.HandleFunc("/s/{token}", RedirectToUrl)
+
+  http.ListenAndServe(":9000", r)
 }
