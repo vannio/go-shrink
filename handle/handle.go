@@ -17,17 +17,101 @@ import (
 
 var db *sql.DB
 
-func init() {
-  var err error
-  db, err = sql.Open("postgres", "postgres://localhost/shrink?sslmode=disable")
-  if err != nil {
-    log.Fatal(err)
+// ------
+// PUBLIC
+// ------
+
+func Create(res http.ResponseWriter, req *http.Request) {
+  if (req.Method != "POST") {
+    http.Redirect(res, req, "/s", 301)
   }
 
-  if err = db.Ping(); err != nil {
-    log.Fatal(err)
+  query := req.FormValue("url")
+  t, _ := template.ParseFiles("tmpl/index.html")
+
+  // URL validation
+  _, parseErr := url.ParseRequestURI(query)
+
+  if parseErr != nil {
+    t.Execute(res, parseErr)
+    return
   }
+
+  // Sanitize URLs to avoid simple duplicates
+  normalisedUrl := normaliseUrl(query)
+
+  // Generate (hopefully) unique token
+  token := createToken(normalisedUrl)
+
+  // Check if URL has already been submitted
+  originalUrl, urlErr := findRow(token)
+
+  if urlErr != nil {
+    t.Execute(res, urlErr)
+    return
+  }
+
+  if len(originalUrl) > 0 {
+    t.Execute(res, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
+    return
+  }
+
+  // Create new entry in db
+  _, insertErr := db.Exec(
+    "INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
+    token,
+    normalisedUrl,
+    time.Now(),
+  )
+
+  if insertErr != nil {
+    t.Execute(res, insertErr)
+    return
+  }
+
+  t.Execute(res, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
 }
+
+func Redirect(res http.ResponseWriter, req *http.Request) {
+  t, _ := template.ParseFiles("tmpl/index.html")
+  token := mux.Vars(req)["token"]
+  originalUrl, urlErr := findRow(token)
+
+  if urlErr != nil {
+    t.Execute(res, urlErr)
+    return
+  }
+
+  // 404 when token is invalid
+  if len(originalUrl) == 0 {
+    http.NotFound(res, req)
+    return
+  }
+
+  // Otherwise update access_count and last_accessed
+  _, queryErr := db.Exec(
+    "UPDATE urls SET access_count = access_count + 1, last_accessed = $1 WHERE token = $2",
+    time.Now(),
+    token,
+  )
+
+  if queryErr != nil {
+    t.Execute(res, queryErr)
+    return
+  }
+
+  // Redirect to the original URL
+  http.Redirect(res, req, url, 302)
+}
+
+func Root(res http.ResponseWriter, req *http.Request) {
+  t, _ := template.ParseFiles("tmpl/index.html")
+  t.Execute(res, nil)
+}
+
+// -------
+// PRIVATE
+// -------
 
 func findRow(token string) (string, error) {
   var url string
@@ -46,105 +130,25 @@ func createToken(url string) string {
   return fmt.Sprintf("%x", c)
 }
 
-func insertUrlToDB(url string, token string) error {
-  fmt.Println("# Inserting values")
-
-  var lastInsertId int
-  err := db.QueryRow(
-    "INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
-    token,
+func normaliseUrl(url string) string {
+  return purell.MustNormalizeURLString(
     url,
-    time.Now(),
-  ).Scan(&lastInsertId)
-
-  if err != nil {
-    fmt.Println(err)
-    return err
-  }
-
-  fmt.Println("last inserted id =", lastInsertId)
-  return nil
-}
-
-func Create(res http.ResponseWriter, req *http.Request) {
-  if (req.Method != "POST") {
-    http.Redirect(res, req, "/s", 301)
-  }
-
-  query := req.FormValue("url")
-  t, _ := template.ParseFiles("tmpl/index.html")
-
-  if (len(query) == 0) {
-    t.Execute(res, "Please submit a valid URL")
-    return
-  }
-
-  _, parseErr := url.ParseRequestURI(query)
-  if parseErr != nil {
-    t.Execute(res, parseErr)
-    return
-  }
-
-  normalisedUrl := purell.MustNormalizeURLString(
-    query,
     purell.FlagsUsuallySafeGreedy |
     purell.FlagRemoveDuplicateSlashes |
     purell.FlagAddWWW |
     purell.FlagSortQuery,
   )
-
-  token := createToken(normalisedUrl)
-
-  url, urlErr := findRow(token)
-
-  if urlErr != nil {
-    t.Execute(res, urlErr)
-    return
-  }
-
-  if len(url) > 0 {
-    t.Execute(res, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
-    return
-  }
-
-  insertErr := insertUrlToDB(normalisedUrl, token)
-
-  if insertErr != nil {
-    t.Execute(res, insertErr)
-    return
-  }
-
-  t.Execute(res, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
-  return
 }
 
+func init() {
+  var err error
+  db, err = sql.Open("postgres", "postgres://localhost/shrink?sslmode=disable")
 
-func Root(res http.ResponseWriter, req *http.Request) {
-  t, _ := template.ParseFiles("tmpl/index.html")
-  t.Execute(res, nil)
-}
-
-
-func Redirect(res http.ResponseWriter, req *http.Request) {
-  token := mux.Vars(req)["token"]
-  url, urlErr := findRow(token)
-  t, _ := template.ParseFiles("tmpl/index.html")
-
-  if urlErr != nil {
-    t.Execute(res, urlErr)
-    return
+  if err != nil {
+    log.Fatal(err)
   }
 
-  if len(url) > 0 {
-    fmt.Println("# Updating values")
-    _, queryErr := db.Exec("UPDATE urls SET access_count = access_count + 1, last_accessed = $1 WHERE token = $2", time.Now(), token)
-
-    if queryErr != nil {
-      t.Execute(res, queryErr)
-    }
-    http.Redirect(res, req, url, 302)
-    return
+  if err = db.Ping(); err != nil {
+    log.Fatal(err)
   }
-
-  http.NotFound(res, req)
 }

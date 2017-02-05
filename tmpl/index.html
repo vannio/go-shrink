@@ -5,10 +5,10 @@
     <title>Shrink</title>
   </head>
   <body>
-    <h1>Shrink</h1>
+    <h1><a href="/s">Shrink</a></h1>
     <form action="/s/create" method="post">
       <label for="url">Url</label>
-      <input name="url" type="url" placeholder="http://" value="http://" id="url"></input>
+      <input name="url" type="url" placeholder="http://" value="http://" required id="url"></input>
       <input type="submit" value="Shrink"></input>
     </form>
     <p class="notice">{{.}}</p>
