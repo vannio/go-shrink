@@ -29,7 +29,12 @@ func init() {
 }
 
 func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
-  query := req.URL.Query().Get("url")
+  if (req.Method != "POST") {
+    http.Redirect(res, req, "/s", 301)
+  }
+
+  query := req.FormValue("url")
+
   if (len(query) == 0) {
     fmt.Fprint(res, "No URL detected")
     return
@@ -73,6 +78,7 @@ func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
   }
 
   fmt.Fprint(res, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
+  return
 }
 
 func createToken(url string) string {
@@ -128,9 +134,15 @@ func RedirectToUrl(res http.ResponseWriter, req *http.Request) {
   http.NotFound(res, req)
 }
 
+func Homepage(res http.ResponseWriter, req *http.Request) {
+  fmt.Println(req.URL.Path[1:])
+  http.ServeFile(res, req, "views/index.html")
+}
+
 func main() {
   r := mux.NewRouter()
-  r.HandleFunc("/", FindOrCreateShorturl)
+  r.HandleFunc("/s", Homepage)
+  r.HandleFunc("/s/create", FindOrCreateShorturl)
   r.HandleFunc("/s/{token}", RedirectToUrl)
 
   http.ListenAndServe(":9000", r)
