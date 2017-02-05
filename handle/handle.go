@@ -19,19 +19,19 @@ import (
 // PUBLIC
 // ------
 
-func Create(res http.ResponseWriter, req *http.Request) {
-  if (req.Method != "POST") {
-    http.Redirect(res, req, "/s", 301)
+func Create(w http.ResponseWriter, r *http.Request) {
+  if (r.Method != "POST") {
+    http.Redirect(w, r, "/s", 301)
   }
 
-  query := req.FormValue("url")
+  query := r.FormValue("url")
   t, _ := template.ParseFiles("tmpl/index.html")
 
   // URL validation
   _, parseErr := url.ParseRequestURI(query)
 
   if parseErr != nil {
-    t.Execute(res, parseErr)
+    t.Execute(w, parseErr)
     return
   }
 
@@ -45,12 +45,12 @@ func Create(res http.ResponseWriter, req *http.Request) {
   originalUrl, urlErr := findRow(token)
 
   if urlErr != nil {
-    t.Execute(res, urlErr)
+    t.Execute(w, urlErr)
     return
   }
 
   if len(originalUrl) > 0 {
-    t.Execute(res, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
+    t.Execute(w, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
     return
   }
 
@@ -63,26 +63,26 @@ func Create(res http.ResponseWriter, req *http.Request) {
   )
 
   if insertErr != nil {
-    t.Execute(res, insertErr)
+    t.Execute(w, insertErr)
     return
   }
 
-  t.Execute(res, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
+  t.Execute(w, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
 }
 
-func Redirect(res http.ResponseWriter, req *http.Request) {
+func Redirect(w http.ResponseWriter, r *http.Request) {
   t, _ := template.ParseFiles("tmpl/index.html")
-  token := mux.Vars(req)["token"]
+  token := mux.Vars(r)["token"]
   originalUrl, urlErr := findRow(token)
 
   if urlErr != nil {
-    t.Execute(res, urlErr)
+    t.Execute(w, urlErr)
     return
   }
 
   // 404 when token is invalid
   if len(originalUrl) == 0 {
-    http.NotFound(res, req)
+    http.NotFound(w, r)
     return
   }
 
@@ -94,17 +94,17 @@ func Redirect(res http.ResponseWriter, req *http.Request) {
   )
 
   if queryErr != nil {
-    t.Execute(res, queryErr)
+    t.Execute(w, queryErr)
     return
   }
 
   // Redirect to the original URL
-  http.Redirect(res, req, originalUrl, 302)
+  http.Redirect(w, r, originalUrl, 302)
 }
 
-func Root(res http.ResponseWriter, req *http.Request) {
+func Root(w http.ResponseWriter, r *http.Request) {
   t, _ := template.ParseFiles("tmpl/index.html")
-  t.Execute(res, nil)
+  t.Execute(w, nil)
 }
 
 // -------
