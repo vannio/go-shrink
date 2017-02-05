@@ -8,6 +8,7 @@ import (
   "net/url"
   "hash/adler32"
   "database/sql"
+  "html/template"
 
   _ "github.com/lib/pq"
   "github.com/PuerkitoBio/purell"
@@ -34,15 +35,16 @@ func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
   }
 
   query := req.FormValue("url")
+  t, _ := template.ParseFiles("views/index.html")
 
   if (len(query) == 0) {
-    fmt.Fprint(res, "No URL detected")
+    t.Execute(res, "Please submit a valid URL")
     return
   }
 
   _, parseErr := url.ParseRequestURI(query)
   if parseErr != nil {
-    fmt.Fprint(res, parseErr)
+    t.Execute(res, parseErr)
     return
   }
 
@@ -59,25 +61,23 @@ func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
   url, urlErr := findRow(token)
 
   if urlErr != nil {
-    fmt.Fprint(res, urlErr)
+    t.Execute(res, urlErr)
     return
   }
 
-  fmt.Println(url)
-
   if len(url) > 0 {
-    fmt.Fprint(res, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
+    t.Execute(res, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
     return
   }
 
   insertErr := InsertUrlToDB(normalisedUrl, token)
 
   if insertErr != nil {
-    fmt.Fprint(res, insertErr)
+    t.Execute(res, insertErr)
     return
   }
 
-  fmt.Fprint(res, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
+  t.Execute(res, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
   return
 }
 
@@ -119,11 +119,11 @@ func findRow(token string) (string, error) {
 
 func RedirectToUrl(res http.ResponseWriter, req *http.Request) {
   token := mux.Vars(req)["token"]
-
   url, urlErr := findRow(token)
+  t, _ := template.ParseFiles("views/index.html")
 
   if urlErr != nil {
-    fmt.Fprint(res, urlErr)
+    t.Execute(res, urlErr)
     return
   }
 
@@ -135,8 +135,8 @@ func RedirectToUrl(res http.ResponseWriter, req *http.Request) {
 }
 
 func Homepage(res http.ResponseWriter, req *http.Request) {
-  fmt.Println(req.URL.Path[1:])
-  http.ServeFile(res, req, "views/index.html")
+  t, _ := template.ParseFiles("views/index.html")
+  t.Execute(res, nil)
 }
 
 func main() {
