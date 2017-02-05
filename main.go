@@ -29,7 +29,45 @@ func init() {
   }
 }
 
-func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
+
+func findRow(token string) (string, error) {
+  var url string
+  err := db.QueryRow("SELECT url FROM urls WHERE token = $1", token).Scan(&url)
+
+  if err == sql.ErrNoRows {
+    return url, nil
+  }
+
+  return url, err
+}
+
+func createToken(url string) string {
+  b := []byte(url)
+  c := adler32.Checksum(b)
+  return fmt.Sprintf("%x", c)
+}
+
+func insertUrlToDB(url string, token string) error {
+  fmt.Println("# Inserting values")
+
+  var lastInsertId int
+  err := db.QueryRow(
+    "INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
+    token,
+    url,
+    time.Now(),
+  ).Scan(&lastInsertId)
+
+  if err != nil {
+    fmt.Println(err)
+    return err
+  }
+
+  fmt.Println("last inserted id =", lastInsertId)
+  return nil
+}
+
+func handleCreate(res http.ResponseWriter, req *http.Request) {
   if (req.Method != "POST") {
     http.Redirect(res, req, "/s", 301)
   }
@@ -70,7 +108,7 @@ func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
     return
   }
 
-  insertErr := InsertUrlToDB(normalisedUrl, token)
+  insertErr := insertUrlToDB(normalisedUrl, token)
 
   if insertErr != nil {
     t.Execute(res, insertErr)
@@ -81,43 +119,7 @@ func FindOrCreateShorturl(res http.ResponseWriter, req *http.Request) {
   return
 }
 
-func createToken(url string) string {
-  b := []byte(url)
-  c := adler32.Checksum(b)
-  return fmt.Sprintf("%x", c)
-}
-
-func InsertUrlToDB(url string, token string) error {
-  fmt.Println("# Inserting values")
-
-  var lastInsertId int
-  err := db.QueryRow(
-    "INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
-    token,
-    url,
-    time.Now(),
-  ).Scan(&lastInsertId)
-
-  if err != nil {
-    return err
-  }
-
-  fmt.Println("last inserted id =", lastInsertId)
-  return nil
-}
-
-func findRow(token string) (string, error) {
-  var url string
-  err := db.QueryRow("SELECT url FROM urls WHERE token = $1", token).Scan(&url)
-
-  if err == sql.ErrNoRows {
-    return url, nil
-  }
-
-  return url, err
-}
-
-func RedirectToUrl(res http.ResponseWriter, req *http.Request) {
+func handleRedirect(res http.ResponseWriter, req *http.Request) {
   token := mux.Vars(req)["token"]
   url, urlErr := findRow(token)
   t, _ := template.ParseFiles("views/index.html")
@@ -128,22 +130,30 @@ func RedirectToUrl(res http.ResponseWriter, req *http.Request) {
   }
 
   if len(url) > 0 {
-    http.Redirect(res, req, url, 301)
+    fmt.Println("# Updating values")
+    _, queryErr := db.Exec("UPDATE urls SET access_count = access_count + 1, last_accessed = $1 WHERE token = $2", time.Now(), token)
+
+    if queryErr != nil {
+      t.Execute(res, queryErr)
+    }
+    http.Redirect(res, req, url, 302)
+    return
   }
 
   http.NotFound(res, req)
 }
 
-func Homepage(res http.ResponseWriter, req *http.Request) {
+func handleRoot(res http.ResponseWriter, req *http.Request) {
   t, _ := template.ParseFiles("views/index.html")
   t.Execute(res, nil)
 }
 
 func main() {
   r := mux.NewRouter()
-  r.HandleFunc("/s", Homepage)
-  r.HandleFunc("/s/create", FindOrCreateShorturl)
-  r.HandleFunc("/s/{token}", RedirectToUrl)
+  s := r.PathPrefix("/s").Subrouter().StrictSlash(true)
+  s.HandleFunc("/", handleRoot)
+  s.HandleFunc("/create", handleCreate)
+  s.HandleFunc("/{token}", handleRedirect)
 
   http.ListenAndServe(":9000", r)
 }
