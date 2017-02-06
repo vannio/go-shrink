@@ -3,6 +3,8 @@ package db
 import (
   "log"
   "database/sql"
+  
+  _ "github.com/lib/pq"
 )
 
 // DB connection is safe to expose
