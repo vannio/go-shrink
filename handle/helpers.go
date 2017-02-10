@@ -31,7 +31,6 @@ func normaliseURL(url string) string {
 		url,
 		purell.FlagsUsuallySafeGreedy|
 			purell.FlagRemoveDuplicateSlashes|
-			purell.FlagAddWWW|
 			purell.FlagSortQuery,
 	)
 }

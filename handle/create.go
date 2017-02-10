@@ -4,6 +4,8 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/vannio/shrink/db"
@@ -11,24 +13,31 @@ import (
 
 // Create : This handles the creation of a shortURL
 func Create(w http.ResponseWriter, r *http.Request) {
+	baseURL := os.Getenv("baseURL")
+	port := os.Getenv("port")
+	pathPrefix := os.Getenv("pathPrefix")
+
 	if r.Method != "POST" {
-		http.Redirect(w, r, "/s", 301)
+		http.Redirect(w, r, pathPrefix, 301)
 	}
 
-	query := r.FormValue("url")
 	t, _ := template.ParseFiles("template/index.html")
-
-	_, parseErr := url.ParseRequestURI(query)
+	u, parseErr := url.ParseRequestURI(r.FormValue("url"))
 
 	if parseErr != nil {
 		t.Execute(w, parseErr)
 		return
 	}
 
-	normalisedURL := normaliseURL(query)
-
+	queryURL := u.String()
+	normalisedURL := normaliseURL(queryURL)
 	token := createToken(normalisedURL)
 
+	if strings.Contains(queryURL, baseURL) && strings.Contains(queryURL, pathPrefix) {
+		token = strings.TrimPrefix(u.EscapedPath(), pathPrefix)
+	}
+
+	shortURL := "http://" + baseURL + port + pathPrefix + token
 	originalURL, urlErr := findRow(token)
 
 	if urlErr != nil {
@@ -37,7 +46,12 @@ func Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(originalURL) > 0 {
-		t.Execute(w, "Shorturl already exists! Shorturl for "+query+" is http://vann.io/s/"+token)
+		if queryURL == shortURL {
+			t.Execute(w, "Shorturl already exists! Shorturl for "+originalURL+" is "+shortURL)
+			return
+		}
+
+		t.Execute(w, "Shorturl already exists! Shorturl for "+queryURL+" is "+shortURL)
 		return
 	}
 
@@ -53,5 +67,5 @@ func Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t.Execute(w, "Shorturl created! Shorturl for "+query+" is http://vann.io/s/"+token)
+	t.Execute(w, "Shorturl created! Shorturl for "+queryURL+" is "+shortURL)
 }
