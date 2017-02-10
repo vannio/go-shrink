@@ -15,8 +15,10 @@ Table currently looks like:
 #### TODO
 - Create some kind of self-executing `sql` script to generate the table
 - Implement POST-redirect
+- Fix issues
 - Make it look less ugly
 - Maybe think of a better name than _Shrink_
 - Differentiate between dev and prod environments
 - Get it working on AWS
+- Create a cron job to clear entries if they haven't been accessed in 4 weeks(?)
 - Hope no-one abuses it
