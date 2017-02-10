@@ -1,37 +1,37 @@
 package handle
 
 import (
-  "fmt"
-  "database/sql"
-  "hash/adler32"
+	"database/sql"
+	"fmt"
+	"hash/adler32"
 
-  "github.com/PuerkitoBio/purell"
-  "github.com/vannio/shrink/db"
+	"github.com/PuerkitoBio/purell"
+	"github.com/vannio/shrink/db"
 )
 
 func findRow(token string) (string, error) {
-  var url string
-  err := db.Connection.QueryRow("SELECT url FROM urls WHERE token = $1", token).Scan(&url)
+	var url string
+	err := db.Connection.QueryRow("SELECT url FROM urls WHERE token = $1", token).Scan(&url)
 
-  if err == sql.ErrNoRows {
-    return url, nil
-  }
+	if err == sql.ErrNoRows {
+		return url, nil
+	}
 
-  return url, err
+	return url, err
 }
 
 func createToken(url string) string {
-  b := []byte(url)
-  c := adler32.Checksum(b)
-  return fmt.Sprintf("%x", c)
+	b := []byte(url)
+	c := adler32.Checksum(b)
+	return fmt.Sprintf("%x", c)
 }
 
-func normaliseUrl(url string) string {
-  return purell.MustNormalizeURLString(
-    url,
-    purell.FlagsUsuallySafeGreedy |
-    purell.FlagRemoveDuplicateSlashes |
-    purell.FlagAddWWW |
-    purell.FlagSortQuery,
-  )
+func normaliseURL(url string) string {
+	return purell.MustNormalizeURLString(
+		url,
+		purell.FlagsUsuallySafeGreedy|
+			purell.FlagRemoveDuplicateSlashes|
+			purell.FlagAddWWW|
+			purell.FlagSortQuery,
+	)
 }

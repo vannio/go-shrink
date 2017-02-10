@@ -1,24 +1,24 @@
 package db
 
 import (
-  "log"
-  "database/sql"
-  
-  _ "github.com/lib/pq"
+	"database/sql"
+	"log"
+
+	_ "github.com/lib/pq"
 )
 
-// DB connection is safe to expose
+// Connection : Exposes the open database connection globally
 var Connection *sql.DB
 
 func init() {
-  var err error
-  Connection, err = sql.Open("postgres", "postgres://localhost/shrink?sslmode=disable")
+	var err error
+	Connection, err = sql.Open("postgres", "postgres://localhost/shrink?sslmode=disable")
 
-  if err != nil {
-    log.Fatal(err)
-  }
+	if err != nil {
+		log.Fatal(err)
+	}
 
-  if err = Connection.Ping(); err != nil {
-    log.Fatal(err)
-  }
+	if err = Connection.Ping(); err != nil {
+		log.Fatal(err)
+	}
 }

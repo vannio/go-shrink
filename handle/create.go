@@ -1,56 +1,57 @@
 package handle
 
 import (
-  "time"
-  "net/http"
-  "net/url"
-  "html/template"
+	"html/template"
+	"net/http"
+	"net/url"
+	"time"
 
-  "github.com/vannio/shrink/db"
+	"github.com/vannio/shrink/db"
 )
 
+// Create : This handles the creation of a shortURL
 func Create(w http.ResponseWriter, r *http.Request) {
-  if (r.Method != "POST") {
-    http.Redirect(w, r, "/s", 301)
-  }
+	if r.Method != "POST" {
+		http.Redirect(w, r, "/s", 301)
+	}
 
-  query := r.FormValue("url")
-  t, _ := template.ParseFiles("template/index.html")
+	query := r.FormValue("url")
+	t, _ := template.ParseFiles("template/index.html")
 
-  _, parseErr := url.ParseRequestURI(query)
+	_, parseErr := url.ParseRequestURI(query)
 
-  if parseErr != nil {
-    t.Execute(w, parseErr)
-    return
-  }
+	if parseErr != nil {
+		t.Execute(w, parseErr)
+		return
+	}
 
-  normalisedUrl := normaliseUrl(query)
+	normalisedURL := normaliseURL(query)
 
-  token := createToken(normalisedUrl)
+	token := createToken(normalisedURL)
 
-  originalUrl, urlErr := findRow(token)
+	originalURL, urlErr := findRow(token)
 
-  if urlErr != nil {
-    t.Execute(w, urlErr)
-    return
-  }
+	if urlErr != nil {
+		t.Execute(w, urlErr)
+		return
+	}
 
-  if len(originalUrl) > 0 {
-    t.Execute(w, "Shorturl already exists! Shorturl for " + query + " is http://vann.io/s/" + token)
-    return
-  }
+	if len(originalURL) > 0 {
+		t.Execute(w, "Shorturl already exists! Shorturl for "+query+" is http://vann.io/s/"+token)
+		return
+	}
 
-  _, insertErr := db.Connection.Exec(
-    "INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
-    token,
-    normalisedUrl,
-    time.Now(),
-  )
+	_, insertErr := db.Connection.Exec(
+		"INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
+		token,
+		normalisedURL,
+		time.Now(),
+	)
 
-  if insertErr != nil {
-    t.Execute(w, insertErr)
-    return
-  }
+	if insertErr != nil {
+		t.Execute(w, insertErr)
+		return
+	}
 
-  t.Execute(w, "Shorturl created! Shorturl for " + query + " is http://vann.io/s/" + token)
+	t.Execute(w, "Shorturl created! Shorturl for "+query+" is http://vann.io/s/"+token)
 }
