@@ -9,9 +9,9 @@ import (
 	"github.com/vannio/shrink/db"
 )
 
-func findRow(token string) (string, error) {
+func findRow(slug string) (string, error) {
 	var url string
-	err := db.Connection.QueryRow("SELECT url FROM urls WHERE token = $1", token).Scan(&url)
+	err := db.Connection.QueryRow("SELECT url FROM urls WHERE slug = $1", slug).Scan(&url)
 
 	if err == sql.ErrNoRows {
 		return url, nil
@@ -20,7 +20,7 @@ func findRow(token string) (string, error) {
 	return url, err
 }
 
-func createToken(url string) string {
+func createSlug(url string) string {
 	b := []byte(url)
 	c := adler32.Checksum(b)
 	return fmt.Sprintf("%x", c)

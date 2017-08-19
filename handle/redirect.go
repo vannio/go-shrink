@@ -12,8 +12,8 @@ import (
 // Redirect : This handles the redirection of a shortURL
 func Redirect(w http.ResponseWriter, r *http.Request) {
 	t, _ := template.ParseFiles("template/index.html")
-	token := mux.Vars(r)["token"]
-	originalURL, urlErr := findRow(token)
+	slug := mux.Vars(r)["slug"]
+	originalURL, urlErr := findRow(slug)
 
 	if urlErr != nil {
 		t.Execute(w, urlErr)
@@ -26,9 +26,9 @@ func Redirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, queryErr := db.Connection.Exec(
-		"UPDATE urls SET access_count = access_count + 1, last_accessed = $1 WHERE token = $2",
+		"UPDATE urls SET access_count = access_count + 1, last_accessed = $1 WHERE slug = $2",
 		time.Now(),
-		token,
+		slug,
 	)
 
 	if queryErr != nil {

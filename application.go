@@ -22,7 +22,7 @@ func main() {
 	s := r.PathPrefix(pathPrefix).Subrouter().StrictSlash(true)
 	s.HandleFunc("/", handle.Root)
 	s.HandleFunc("/create", handle.Create)
-	s.HandleFunc("/{token}", handle.Redirect)
+	s.HandleFunc("/{slug}", handle.Redirect)
 
 	fmt.Println("Server listening at", baseURL+port)
 	http.ListenAndServe(port, r)

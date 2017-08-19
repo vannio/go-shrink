@@ -22,26 +22,26 @@ func Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	t, _ := template.ParseFiles("template/index.html")
-	u, parseErr := url.ParseRequestURI(r.FormValue("url"))
+	u, err := url.ParseRequestURI(r.FormValue("url"))
 
-	if parseErr != nil {
-		t.Execute(w, parseErr)
+	if err != nil {
+		t.Execute(w, err)
 		return
 	}
 
 	queryURL := u.String()
 	normalisedURL := normaliseURL(queryURL)
-	token := createToken(normalisedURL)
+	slug := createSlug(normalisedURL)
 
 	if strings.Contains(queryURL, baseURL) && strings.Contains(queryURL, pathPrefix) {
-		token = strings.TrimPrefix(u.EscapedPath(), pathPrefix)
+		slug = strings.TrimPrefix(u.EscapedPath(), pathPrefix)
 	}
 
-	shortURL := "http://" + baseURL + port + pathPrefix + token
-	originalURL, urlErr := findRow(token)
+	shortURL := "http://" + baseURL + port + pathPrefix + slug
+	originalURL, err := findRow(slug)
 
-	if urlErr != nil {
-		t.Execute(w, urlErr)
+	if err != nil {
+		t.Execute(w, err)
 		return
 	}
 
@@ -55,15 +55,15 @@ func Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, insertErr := db.Connection.Exec(
-		"INSERT INTO urls(token,url,created_at) VALUES($1,$2,$3) returning id;",
-		token,
+	_, err = db.Connection.Exec(
+		"INSERT INTO urls(slug,url,created_at) VALUES($1,$2,$3) returning id;",
+		slug,
 		normalisedURL,
 		time.Now(),
 	)
 
-	if insertErr != nil {
-		t.Execute(w, insertErr)
+	if err != nil {
+		t.Execute(w, err)
 		return
 	}
 
