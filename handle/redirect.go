@@ -3,7 +3,6 @@ package handle
 import (
 	"html/template"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/vannio/shrink/db"
@@ -13,10 +12,10 @@ import (
 func Redirect(w http.ResponseWriter, r *http.Request) {
 	t, _ := template.ParseFiles("template/index.html")
 	slug := mux.Vars(r)["slug"]
-	originalURL, urlErr := findRow(slug)
+	originalURL, err := db.FindRow(slug)
 
-	if urlErr != nil {
-		t.Execute(w, urlErr)
+	if err != nil {
+		t.Execute(w, err)
 		return
 	}
 
@@ -25,14 +24,10 @@ func Redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, queryErr := db.Connection.Exec(
-		"UPDATE urls SET access_count = access_count + 1, last_accessed = $1 WHERE slug = $2",
-		time.Now(),
-		slug,
-	)
+	err = db.IncrementVisits(slug)
 
-	if queryErr != nil {
-		t.Execute(w, queryErr)
+	if err != nil {
+		t.Execute(w, err)
 		return
 	}
 

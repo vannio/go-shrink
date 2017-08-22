@@ -3,26 +3,49 @@ package handle
 import (
 	"html/template"
 	"net/http"
-	"net/url"
-	"os"
-	"strings"
-	"time"
+	nurl "net/url"
 
 	"github.com/vannio/shrink/db"
+	"github.com/vannio/shrink/url"
 )
+
+func shrink(queryURL string) (string, error) {
+	normalisedURL := url.Normalise(queryURL)
+	slug := url.Slug(normalisedURL)
+	shortURL := url.Make(slug)
+	originalURL, err := db.FindRow(slug)
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(originalURL) > 0 {
+		url := queryURL
+
+		if queryURL == shortURL {
+			url = originalURL
+		}
+
+		return "Shorturl already exists! Shorturl for " + url + " is " + shortURL, nil
+	}
+
+	err = db.AddRow(slug, normalisedURL)
+
+	if err != nil {
+		return "", err
+	}
+
+	return "Shorturl created! Shorturl for " + queryURL + " is " + shortURL, nil
+}
 
 // Create : This handles the creation of a shortURL
 func Create(w http.ResponseWriter, r *http.Request) {
-	baseURL := os.Getenv("baseURL")
-	port := os.Getenv("port")
-	pathPrefix := os.Getenv("pathPrefix")
-
 	if r.Method != "POST" {
-		http.Redirect(w, r, pathPrefix, 301)
+		http.Redirect(w, r, "/", 301)
 	}
 
 	t, _ := template.ParseFiles("template/index.html")
-	u, err := url.ParseRequestURI(r.FormValue("url"))
+	u, err := nurl.ParseRequestURI(r.FormValue("url"))
 
 	if err != nil {
 		t.Execute(w, err)
@@ -30,42 +53,12 @@ func Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	queryURL := u.String()
-	normalisedURL := normaliseURL(queryURL)
-	slug := createSlug(normalisedURL)
-
-	if strings.Contains(queryURL, baseURL) && strings.Contains(queryURL, pathPrefix) {
-		slug = strings.TrimPrefix(u.EscapedPath(), pathPrefix)
-	}
-
-	shortURL := "http://" + baseURL + port + pathPrefix + slug
-	originalURL, err := findRow(slug)
+	msg, err := shrink(queryURL)
 
 	if err != nil {
 		t.Execute(w, err)
 		return
 	}
 
-	if len(originalURL) > 0 {
-		if queryURL == shortURL {
-			t.Execute(w, "Shorturl already exists! Shorturl for "+originalURL+" is "+shortURL)
-			return
-		}
-
-		t.Execute(w, "Shorturl already exists! Shorturl for "+queryURL+" is "+shortURL)
-		return
-	}
-
-	_, err = db.Connection.Exec(
-		"INSERT INTO urls(slug,url,created_at) VALUES($1,$2,$3) returning id;",
-		slug,
-		normalisedURL,
-		time.Now(),
-	)
-
-	if err != nil {
-		t.Execute(w, err)
-		return
-	}
-
-	t.Execute(w, "Shorturl created! Shorturl for "+queryURL+" is "+shortURL)
+	t.Execute(w, msg)
 }
