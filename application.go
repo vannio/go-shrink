@@ -17,7 +17,6 @@ func main() {
 	os.Setenv("base_URL", baseURL)
 
 	r := mux.NewRouter()
-	r.HandleFunc("/", handle.Root)
 	r.HandleFunc("/create", handle.Create)
 	r.HandleFunc("/{slug}", handle.Redirect)
 
