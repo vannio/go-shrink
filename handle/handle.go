@@ -1,11 +1,6 @@
 package handle
 
-import (
-	"encoding/json"
-
-	"github.com/vannio/shrink/db"
-	"github.com/vannio/shrink/url"
-)
+import "encoding/json"
 
 // Response : Structure of the JSON
 type Response struct {
@@ -15,41 +10,9 @@ type Response struct {
 	ShortURL string `json:"shorturl,omitempty"`
 }
 
-func shrink(queryURL string) Response {
-	normalisedURL := url.Normalise(queryURL)
-	slug := url.Slug(normalisedURL)
-	shortURL := url.Make(slug)
-	originalURL, err := db.FindRow(slug)
-
-	if err != nil {
-		return Response{Error: err.Error()}
-	}
-
-	if len(originalURL) > 0 {
-		url := queryURL
-
-		if queryURL == shortURL {
-			url = originalURL
-		}
-
-		return Response{
-			Message:  "Already exists",
-			QueryURL: url,
-			ShortURL: shortURL,
-		}
-	}
-
-	err = db.AddRow(slug, normalisedURL)
-
-	if err != nil {
-		return Response{Error: err.Error()}
-	}
-
-	return Response{
-		Message:  "Shorturl created",
-		QueryURL: queryURL,
-		ShortURL: shortURL,
-	}
+// SetMessage : Sets a response message
+func (r *Response) SetMessage(message string) {
+	r.Message = message
 }
 
 func jsonifyError(err error) []byte {

@@ -20,7 +20,7 @@ func Normalise(url string) string {
 
 // Make : Puts together a full URL with a given slug
 func Make(slug string) string {
-	return "http://" + os.Getenv("base_URL") + os.Getenv("port") + "/" + slug
+	return os.Getenv("BASEURL") + os.Getenv("PORT") + "/" + slug
 }
 
 // Slug : Hashes a given URL and returns the resulting string as a slug

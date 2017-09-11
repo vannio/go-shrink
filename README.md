@@ -1,8 +1,19 @@
 # Shrink
 
-| id | slug | url | created_at | last_accessed | access_count |
-| --- | --- | --- | --- | --- | --- |
-| key | string | string | timestamp | timestamp | integer |
-| 1 | 55b207d6 | http://www.google.com | 2017-02-05 12:25:30.044385 | 2017-02-05 10:34:05.186949 | 5 |
+### Useful commands
 
-_DB table example_
+- PSQL —
+  ```sql
+  CREATE DATABASE shrink;
+  CREATE TABLE urls (
+      id serial primary key,
+      slug text unique not null,
+      url text not null,
+      created_at timestamp default current_timestamp(2),
+      last_accessed timestamp,
+      access_count integer default 0
+  );
+  ```
+- Run tests — `ENV=test BASEURL=https://testing.com go test ./...`
+- Start app — `go run main.go` _(default host is http://localhost:8080)_
+- Shrink! — `curl -X POST -F url=http://www.reallylongaddress.com http://localhost:8080/create`

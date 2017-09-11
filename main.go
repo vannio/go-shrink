@@ -10,11 +10,16 @@ import (
 )
 
 func main() {
-	baseURL := "localhost"
-	port := ":8080"
+	if os.Getenv("PORT") == "" {
+		os.Setenv("PORT", ":8080")
+	}
 
-	os.Setenv("port", port)
-	os.Setenv("base_URL", baseURL)
+	if os.Getenv("BASEURL") == "" {
+		os.Setenv("BASEURL", "http://localhost")
+	}
+
+	port := os.Getenv("PORT")
+	baseURL := os.Getenv("BASEURL")
 
 	r := mux.NewRouter()
 	r.HandleFunc("/create", handle.Create)
