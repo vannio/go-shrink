@@ -1,4 +1,4 @@
-# Shrink
+# Shrink [![Build Status](https://api.travis-ci.org/vannio/go-shrink.svg?branch=master)](https://travis-ci.org/vannio/go-shrink)
 
 ### Useful commands
 
